@@ -15,7 +15,6 @@
  */
 package com.google.idea.blaze.base.buildmodifier;
 
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.idea.blaze.base.lang.buildfile.psi.BuildFile;
 import com.google.idea.blaze.base.lang.buildfile.psi.BuildFile.BlazeFileType;
 import com.google.idea.common.formatter.ExternalFormatterCodeStyleManager;
@@ -45,14 +44,7 @@ final class BuildifierDelegatingCodeStyleManager extends ExternalFormatterCodeSt
     if (!(file instanceof BuildFile)) {
       return;
     }
-    FileContentsProvider contentsProvider = FileContentsProvider.fromPsiFile(file);
-    if (contentsProvider == null) {
-      return;
-    }
     BlazeFileType type = ((BuildFile) file).getBlazeFileType();
-    ListenableFuture<Replacements> formattedFileFuture =
-        BuildFileFormatter.formatTextWithProgressDialog(
-            getProject(), type, contentsProvider, ranges);
-    performReplacementsAsync(contentsProvider, formattedFileFuture);
+    BuildFileFormatter.formatTextWithProgressDialog(getProject(), file, type, ranges);
   }
 }

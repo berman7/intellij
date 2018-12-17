@@ -218,15 +218,15 @@ maven_jar(
 # LICENSE: The Apache Software License, Version 2.0
 maven_jar(
     name = "auto_value",
-    artifact = "com.google.auto.value:auto-value:1.6",
-    sha1 = "a3b1b1404f8acaa88594a017185e013cd342c9a8",
+    artifact = "com.google.auto.value:auto-value:1.6.2",
+    sha1 = "e7eae562942315a983eea3e191b72d755c153620",
 )
 
 # LICENSE: The Apache Software License, Version 2.0
 maven_jar(
     name = "auto_value_annotations",
-    artifact = "com.google.auto.value:auto-value-annotations:1.6",
-    sha1 = "da725083ee79fdcd86d9f3d8a76e38174a01892a",
+    artifact = "com.google.auto.value:auto-value-annotations:1.6.2",
+    sha1 = "ed193d86e0af90cc2342aedbe73c5d86b03fa09b",
 )
 
 # LICENSE: The Apache Software License, Version 2.0

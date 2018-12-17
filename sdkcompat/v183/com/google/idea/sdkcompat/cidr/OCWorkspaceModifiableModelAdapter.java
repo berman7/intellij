@@ -15,26 +15,35 @@
  */
 package com.google.idea.sdkcompat.cidr;
 
-import com.intellij.openapi.util.Pair;
-import com.intellij.openapi.util.Trinity;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.TransactionGuard;
+import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.util.NullableFunction;
 import com.jetbrains.cidr.lang.OCLanguageKind;
 import com.jetbrains.cidr.lang.toolchains.CidrCompilerSwitches;
 import com.jetbrains.cidr.lang.toolchains.CidrToolEnvironment;
 import com.jetbrains.cidr.lang.workspace.OCResolveConfiguration;
+import com.jetbrains.cidr.lang.workspace.OCResolveConfigurationImpl;
 import com.jetbrains.cidr.lang.workspace.OCWorkspace.ModifiableModel;
 import com.jetbrains.cidr.lang.workspace.OCWorkspaceImpl;
+import com.jetbrains.cidr.lang.workspace.compiler.CompilerInfoCache;
 import com.jetbrains.cidr.lang.workspace.compiler.OCCompilerKind;
+import com.jetbrains.cidr.lang.workspace.compiler.OCCompilerSettings;
 import java.io.File;
 import java.util.Map;
 
 /** Adapter to bridge different SDK versions. */
 public class OCWorkspaceModifiableModelAdapter {
-
   /** This method bridges SDK differences between CLion 2018.1.3 and Android Studio 3.2 #api181 */
   public static void commit(OCWorkspaceImpl.ModifiableModel model, int serialVersion) {
-    model.commit();
+    model.setSourceVersion(serialVersion);
+    model.preCommit();
+    TransactionGuard.getInstance()
+        .submitTransactionAndWait(
+            () -> {
+              ApplicationManager.getApplication().runWriteAction(model::commit);
+            });
   }
 
   // #api182: In 2018.3, addConfiguration only takes 2 or 4 parameters
@@ -44,11 +53,58 @@ public class OCWorkspaceModifiableModelAdapter {
       String displayName,
       String shortDisplayName,
       File directory,
-      Map<OCLanguageKind, Trinity<OCCompilerKind, File, CidrCompilerSwitches>> configLanguages,
-      Map<VirtualFile, Pair<OCLanguageKind, CidrCompilerSwitches>> configSourceFiles,
+      Map<OCLanguageKind, PerLanguageCompilerOpts> configLanguages,
+      Map<VirtualFile, PerFileCompilerOpts> configSourceFiles,
       CidrToolEnvironment toolEnvironment,
-      NullableFunction<File, VirtualFile> fileMapper) {
-    workspaceModifiable.addConfiguration(
-        id, displayName, shortDisplayName, OCResolveConfiguration.DEFAULT_FILE_SEPARATORS);
+      NullableFunction<File, VirtualFile> fileMapper,
+      CompilerInfoCache compilerInfoCache) {
+    OCResolveConfigurationImpl.ModifiableModel config =
+        workspaceModifiable.addConfiguration(
+            id, displayName, shortDisplayName, OCResolveConfiguration.DEFAULT_FILE_SEPARATORS);
+    for (Map.Entry<OCLanguageKind, PerLanguageCompilerOpts> languageEntry :
+        configLanguages.entrySet()) {
+      OCCompilerSettings.ModifiableModel langSettings =
+          config.getLanguageCompilerSettings(languageEntry.getKey());
+      PerLanguageCompilerOpts configForLanguage = languageEntry.getValue();
+      langSettings.setCompiler(configForLanguage.kind, configForLanguage.compiler, directory);
+      langSettings.setSwitches(configForLanguage.switches);
+    }
+
+    for (Map.Entry<VirtualFile, PerFileCompilerOpts> fileEntry : configSourceFiles.entrySet()) {
+      PerFileCompilerOpts compilerOpts = fileEntry.getValue();
+      OCCompilerSettings.ModifiableModel fileCompilerSettings =
+          config.addSource(fileEntry.getKey(), compilerOpts.kind);
+      fileCompilerSettings.setSwitches(compilerOpts.switches);
+    }
+    config.collectCompilerSettings(toolEnvironment, compilerInfoCache, fileMapper);
+  }
+
+  public static ModifiableModel getClearedModifiableModel(Project project) {
+    return OCWorkspaceImpl.getInstanceImpl(project).getModifiableModel(true);
+  }
+
+  /** Group compiler options for a specific file. #api182 */
+  public static class PerFileCompilerOpts {
+    final OCLanguageKind kind;
+    final CidrCompilerSwitches switches;
+
+    public PerFileCompilerOpts(OCLanguageKind kind, CidrCompilerSwitches switches) {
+      this.kind = kind;
+      this.switches = switches;
+    }
+  }
+
+  /** Group compiler options for a specific language. #api182 */
+  public static class PerLanguageCompilerOpts {
+    final OCCompilerKind kind;
+    final File compiler;
+    final CidrCompilerSwitches switches;
+
+    public PerLanguageCompilerOpts(
+        OCCompilerKind kind, File compiler, CidrCompilerSwitches switches) {
+      this.kind = kind;
+      this.compiler = compiler;
+      this.switches = switches;
+    }
   }
 }

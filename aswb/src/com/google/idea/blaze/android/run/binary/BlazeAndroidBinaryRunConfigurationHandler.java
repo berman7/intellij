@@ -23,7 +23,7 @@ import com.google.common.collect.Lists;
 import com.google.idea.blaze.android.run.BlazeAndroidRunConfigurationCommonState;
 import com.google.idea.blaze.android.run.BlazeAndroidRunConfigurationHandler;
 import com.google.idea.blaze.android.run.BlazeAndroidRunConfigurationValidationUtil;
-import com.google.idea.blaze.android.run.binary.BlazeAndroidBinaryLaunchMethodsProvider.AndroidBinaryLaunchMethod;
+import com.google.idea.blaze.android.run.binary.AndroidBinaryLaunchMethodsUtils.AndroidBinaryLaunchMethod;
 import com.google.idea.blaze.android.run.binary.mobileinstall.BlazeAndroidBinaryMobileInstallRunContext;
 import com.google.idea.blaze.android.run.runner.BlazeAndroidRunConfigurationRunner;
 import com.google.idea.blaze.android.run.runner.BlazeAndroidRunContext;

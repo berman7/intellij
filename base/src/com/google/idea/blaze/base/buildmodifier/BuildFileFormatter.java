@@ -21,8 +21,10 @@ import com.google.common.io.CharStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.idea.blaze.base.lang.buildfile.psi.BuildFile.BlazeFileType;
-import com.google.idea.common.formatter.ExternalFormatterCodeStyleManager.FileContentsProvider;
-import com.google.idea.common.formatter.ExternalFormatterCodeStyleManager.Replacements;
+import com.google.idea.common.formatter.FileBasedFormattingSynchronizer;
+import com.google.idea.common.formatter.FileBasedFormattingSynchronizer.Formatter;
+import com.google.idea.common.formatter.FormatUtils.FileContentsProvider;
+import com.google.idea.common.formatter.FormatUtils.Replacements;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.progress.PerformInBackgroundOption;
 import com.intellij.openapi.progress.impl.BackgroundableProcessIndicator;
@@ -30,13 +32,13 @@ import com.intellij.openapi.progress.util.AbstractProgressIndicatorExBase;
 import com.intellij.openapi.progress.util.ProgressWindow;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.TextRange;
+import com.intellij.psi.PsiFile;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Collection;
 import javax.annotation.Nullable;
-import org.jetbrains.ide.PooledThreadExecutor;
 
 /** Formats BUILD files using 'buildifier' */
 public class BuildFileFormatter {
@@ -55,20 +57,21 @@ public class BuildFileFormatter {
   }
 
   /**
-   * Calls buildifier for a given text and list of line ranges, and returns the formatted text, or
-   * null if the formatting failed.
+   * Calls buildifier for a given text and list of line ranges.
    *
    * <p>buildifier can be very slow, so this runs with a progress dialog, giving the user some
    * indication that their IDE hasn't died.
    */
-  static ListenableFuture<Replacements> formatTextWithProgressDialog(
-      Project project,
-      BlazeFileType fileType,
-      FileContentsProvider fileContents,
-      Collection<TextRange> ranges) {
-    ListenableFuture<Replacements> future =
-        MoreExecutors.listeningDecorator(PooledThreadExecutor.INSTANCE)
-            .submit(() -> getReplacements(fileType, fileContents, ranges));
+  static void formatTextWithProgressDialog(
+      Project project, PsiFile file, BlazeFileType fileType, Collection<TextRange> ranges) {
+    ListenableFuture<Void> future =
+        FileBasedFormattingSynchronizer.applyReplacements(
+            file,
+            f -> {
+              FileContentsProvider fileContents = FileContentsProvider.fromPsiFile(file);
+              Replacements replacements = getReplacements(fileType, fileContents, ranges);
+              return new Formatter.Result<>(null, replacements);
+            });
     ProgressWindow progressWindow =
         new BackgroundableProcessIndicator(
             project,
@@ -95,7 +98,6 @@ public class BuildFileFormatter {
           }
         },
         MoreExecutors.directExecutor());
-    return future;
   }
 
   /**
